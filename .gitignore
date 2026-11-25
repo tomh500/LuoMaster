@@ -1,0 +1,10 @@
+/build*/
+/luobackup/build/
+/dist/
+/BUILD-SHA256SUMS
+/VALIDATION.md
+/PRODUCTION-CUTOVER.md
+__pycache__/
+*.token
+*.pem
+*.key

@@ -1,0 +1,24 @@
+[Unit]
+Description=Luo game topology control plane
+Wants=luobackup-worker.service
+After=luobackup-worker.service
+
+[Service]
+Type=exec
+User=luo-master
+Group=luo-master
+SupplementaryGroups=luo-backup
+UMask=0077
+RuntimeDirectory=luo-master
+RuntimeDirectoryMode=0700
+Environment=LANG=C.UTF-8
+ExecStart=/usr/local/bin/luo-master --config /etc/luo-master/master.json --console-socket /run/luo-master/console.sock
+Restart=on-failure
+# Set above the maximum maintenance drain window before installation.
+TimeoutStopSec=30min
+KillMode=mixed
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

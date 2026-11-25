@@ -1,0 +1,8 @@
+LuoMaster
+Copyright 2026 tomh500
+
+The original LuoMaster, LuoBackup worker and bridge, SDK, tests, and
+documentation in this repository are licensed under Apache-2.0.
+
+Third-party dependencies are obtained separately and remain under their
+respective licenses. See THIRD_PARTY.md for dependency and reference details.

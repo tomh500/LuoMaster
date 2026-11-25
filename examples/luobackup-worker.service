@@ -1,0 +1,14 @@
+[Unit]
+Description=LuoBackup offline archive worker
+
+[Service]
+Type=exec
+User=luobackup-worker
+Group=luo-backup
+UMask=0077
+Environment=LANG=C.UTF-8
+ExecStart=/usr/local/bin/luobackup-worker --config /etc/luo-master/master.json
+Restart=on-failure
+TimeoutStopSec=15s
+NoNewPrivileges=true
+PrivateTmp=true

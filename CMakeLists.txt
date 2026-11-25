@@ -1,0 +1,82 @@
+cmake_minimum_required(VERSION 3.25)
+project(LuoMaster VERSION 0.1.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(MSVC)
+    add_compile_options(/W4 /utf-8)
+    add_compile_definitions(NOMINMAX)
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+find_package(httplib 0.67.0 EXACT CONFIG QUIET)
+if(NOT TARGET httplib::httplib)
+    include(FetchContent)
+    set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF)
+    set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF)
+    set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF)
+    set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF)
+    set(HTTPLIB_INSTALL OFF)
+    FetchContent_Declare(luo_httplib
+        URL https://codeload.github.com/yhirose/cpp-httplib/tar.gz/refs/tags/v0.67.0
+        URL_HASH SHA256=be711ddaf7a3655d8f23aa5655709250b24d247aedd4b2629989d18b6164e5be
+        TLS_VERIFY TRUE DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+    FetchContent_MakeAvailable(luo_httplib)
+endif()
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(unofficial-sqlite3 CONFIG QUIET)
+if(TARGET unofficial::sqlite3::sqlite3)
+    add_library(SQLite::SQLite3 ALIAS unofficial::sqlite3::sqlite3)
+else()
+    find_package(SQLite3 REQUIRED)
+endif()
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+find_package(LibArchive REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(Threads REQUIRED)
+
+add_library(luo-master-sdk INTERFACE)
+target_include_directories(luo-master-sdk INTERFACE sdk/include)
+if(luo_httplib_SOURCE_DIR)
+    # MSBuild may search vcpkg's injected include path before target include paths.
+    target_compile_definitions(luo-master-sdk INTERFACE
+        "LUO_PINNED_HTTP_HEADER=\"${luo_httplib_SOURCE_DIR}/httplib.h\"")
+endif()
+target_link_libraries(luo-master-sdk INTERFACE httplib::httplib nlohmann_json::nlohmann_json)
+
+add_library(luo-master-runtime STATIC src/config.cpp src/archive.cpp src/platform.cpp)
+target_link_libraries(luo-master-runtime PUBLIC nlohmann_json::nlohmann_json OpenSSL::Crypto LibArchive::LibArchive ZLIB::ZLIB Threads::Threads)
+if(WIN32 AND VCPKG_TARGET_TRIPLET MATCHES "-static$")
+    target_compile_definitions(luo-master-runtime PRIVATE LIBARCHIVE_STATIC)
+endif()
+
+add_executable(luo-master src/main.cpp src/jobs.cpp)
+target_link_libraries(luo-master PRIVATE luo-master-runtime luo-master-sdk SQLite::SQLite3)
+
+set(LUO_ECONOMY_ROOT "" CACHE PATH "Economy source directory to enable Master-owned MySQL routes")
+if(LUO_ECONOMY_ROOT)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(MYSQL REQUIRED IMPORTED_TARGET libmariadb)
+    target_sources(luo-master PRIVATE "${LUO_ECONOMY_ROOT}/main.cpp")
+    target_include_directories(luo-master PRIVATE "${LUO_ECONOMY_ROOT}")
+    target_compile_definitions(luo-master PRIVATE LUO_MASTER_ECONOMY)
+    target_link_libraries(luo-master PRIVATE PkgConfig::MYSQL)
+endif()
+
+add_executable(luobackup-worker src/worker.cpp)
+target_link_libraries(luobackup-worker PRIVATE luo-master-runtime luo-master-sdk)
+
+add_executable(luo-master-client sdk/example.cpp)
+target_link_libraries(luo-master-client PRIVATE luo-master-sdk)
+install(TARGETS luo-master luo-master-client luobackup-worker RUNTIME DESTINATION bin)
+install(DIRECTORY sdk/include/ DESTINATION include)
+
+include(CTest)
+if(BUILD_TESTING)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_executable(fake-lifecycle tests/fake_lifecycle.cpp)
+    add_test(NAME maintenance COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/integration.py
+        $<TARGET_FILE:luo-master> $<TARGET_FILE:fake-lifecycle> $<TARGET_FILE:luo-master-client> $<TARGET_FILE:luobackup-worker>)
+    set_tests_properties(maintenance PROPERTIES TIMEOUT 90)
+endif()

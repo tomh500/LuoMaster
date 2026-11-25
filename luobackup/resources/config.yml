@@ -1,0 +1,6 @@
+master:
+  enabled: false
+  port: 18776
+  token-file: /path/to/backup-submitter.token
+targets:
+  survival: survival

@@ -1,0 +1,29 @@
+{
+  "port": 18776,
+  "http_workers": 2,
+  "action_timeout_seconds": 120,
+  "archive_timeout_seconds": 900,
+  "state_dir": "/var/lib/luo-master/state",
+  "archive_dir": "/var/lib/luo-master/archives",
+  "staging_dir": "/var/lib/luo-master/staging",
+  "lifecycle": "/usr/local/libexec/luo-game-lifecycle",
+  "observer_token_file": "/etc/luo-master/observe.token",
+  "backup_token_file": "/etc/luo-master/submit.token",
+  "worker_token_file": "/etc/luo-master/worker.token",
+  "proxy_actions": ["backup", "status"],
+  "nodes": [
+    {"id": "lobby", "depends_on": [], "save": true},
+    {"id": "survival", "depends_on": [], "save": true},
+    {"id": "bw", "depends_on": [], "save": true},
+    {"id": "minigames", "depends_on": [], "save": true},
+    {"id": "bungee", "depends_on": ["lobby", "survival", "bw", "minigames"], "save": false},
+    {"id": "ingress", "depends_on": ["bungee"], "save": false}
+  ],
+  "profiles": {
+    "survival": {
+      "source": "/srv/minecraft/survival",
+      "include": ["world", "world_nether", "world_the_end", "plugins"],
+      "exclude": ["plugins/Example/cache"]
+    }
+  }
+}
